@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Flight Recommendation System</title>
+
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+    <style>
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+    </style>
+</head>
+
+<body class="w3-light-grey">
+
+    <div class="w3-container w3-padding-32">
+        <h2 class="w3-center">✈ Flight Recommendation System</h2>
+
+        <div class="w3-card w3-white w3-padding">
+            <input id="query" class="w3-input w3-border" 
+                placeholder="Example: Flights from Mumbai to Delhi tomorrow">
+            <button class="w3-button w3-blue w3-margin-top" onclick="fetchSummary()">
+                Search Flights
+            </button>
+        </div>
+
+        <div id="reasoning" class="w3-panel w3-pale-green w3-padding w3-margin-top" style="display:none;"></div>
+
+        <div id="summaryCards" class="card-grid w3-margin-top"></div>
+
+        <div class="w3-card w3-white w3-margin-top w3-padding">
+            <h3>All Flights</h3>
+            <table class="w3-table w3-striped w3-hoverable" id="flightsTable">
+                <thead>
+                    <tr>
+                        <th>Airline</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                        <th>Duration</th>
+                        <th>Price (USD)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+
+<script>
+async function fetchSummary() {
+    const query = document.getElementById("query").value;
+    if (!query) {
+        alert("Please enter a query.");
+        return;
+    }
+
+    document.getElementById("reasoning").style.display = "block";
+    document.getElementById("reasoning").innerHTML = "Loading…";
+
+    const res = await fetch("http://127.0.0.1:8000/simple-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+    });
+
+    const data = await res.json();
+    renderSummary(data);
+}
+
+
+function renderSummary(data) {
+    const reasonBox = document.getElementById("reasoning");
+    const cards = document.getElementById("summaryCards");
+    const tbody = document.querySelector("#flightsTable tbody");
+
+    const { cheapest, fastest, best_overall, reasoning } = data;
+
+    reasonBox.innerHTML = reasoning || "No reasoning available.";
+
+    cards.innerHTML = "";
+
+    const card = (title, content) => `
+        <div class="w3-card w3-white w3-padding">
+            <h4>${title}</h4>
+            <p>${content}</p>
+        </div>
+    `;
+
+    if (cheapest) {
+        cards.innerHTML += card("💸 Cheapest", `
+            Airline: <b>${cheapest.flights[0].airline}</b><br>
+            Price: $${cheapest.price}<br>
+            Depart: ${cheapest.flights[0].departure_airport.time}
+        `);
+    }
+
+    if (fastest) {
+        cards.innerHTML += card("⚡ Fastest", `
+            Airline: <b>${fastest.flights[0].airline}</b><br>
+            Duration: ${fastest.total_duration} min<br>
+            Depart: ${fastest.flights[0].departure_airport.time}
+        `);
+    }
+
+    if (best_overall) {
+        cards.innerHTML += card("🌟 Best Overall", `
+            Airline: <b>${best_overall.flights[0].airline}</b><br>
+            Price: $${best_overall.price}<br>
+            Duration: ${best_overall.total_duration} min
+        `);
+    }
+
+    // Table
+    tbody.innerHTML = "";
+    for (const flight of data.results) {
+        const f = flight.flights[0];
+        tbody.innerHTML += `
+            <tr>
+                <td>${f.airline}</td>
+                <td>${f.departure_airport.time} (${f.departure_airport.id})</td>
+                <td>${f.arrival_airport.time} (${f.arrival_airport.id})</td>
+                <td>${flight.total_duration}</td>
+                <td>$${flight.price}</td>
+            </tr>
+        `;
+    }
+}
+</script>
+
+</body>
+</html>
